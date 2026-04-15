@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sensors</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      padding: 20px;
+      background: #fff;
+      color: #000;
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+    .section {
+      margin-bottom: 30px;
+    }
+    .section h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #333;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 8px;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 14px;
+    }
+    .label {
+      font-weight: 500;
+    }
+    .value {
+      font-family: monospace;
+      text-align: right;
+      min-width: 100px;
+    }
+    .unit {
+      font-size: 12px;
+      color: #666;
+      margin-left: 4px;
+    }
+    .status {
+      padding: 10px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .status.ok {
+      background: #e6f7ed;
+      color: #164b35;
+    }
+    .status.waiting {
+      background: #fff7e6;
+      color: #5d3a0a;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 14px;
+      background: #000;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+    button:hover {
+      background: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>Sensors</h1>
+  <div id="status" class="status waiting">Requesting permission...</div>
+  <button id="btn" onclick="request()" style="display:none;">Enable Sensors</button>
+
+  <div class="section">
+    <h2>Accelerometer</h2>
+    <div class="row"><span class="label">X</span><span class="value"><span id="ax">0.000</span><span class="unit">m/s²</span></span></div>
+    <div class="row"><span class="label">Y</span><span class="value"><span id="ay">0.000</span><span class="unit">m/s²</span></span></div>
+    <div class="row"><span class="label">Z</span><span class="value"><span id="az">0.000</span><span class="unit">m/s²</span></span></div>
+  </div>
+
+  <div class="section">
+    <h2>Gyroscope</h2>
+    <div class="row"><span class="label">X</span><span class="value"><span id="gx">0.000</span><span class="unit">°/s</span></span></div>
+    <div class="row"><span class="label">Y</span><span class="value"><span id="gy">0.000</span><span class="unit">°/s</span></span></div>
+    <div class="row"><span class="label">Z</span><span class="value"><span id="gz">0.000</span><span class="unit">°/s</span></span></div>
+  </div>
+
+  <div class="section">
+    <h2>Orientation</h2>
+    <div class="row"><span class="label">Alpha</span><span class="value"><span id="alpha">0.000</span><span class="unit">°</span></span></div>
+    <div class="row"><span class="label">Beta</span><span class="value"><span id="beta">0.000</span><span class="unit">°</span></span></div>
+    <div class="row"><span class="label">Gamma</span><span class="value"><span id="gamma">0.000</span><span class="unit">°</span></span></div>
+  </div>
+
+  <script>
+    const el = {
+      ax: document.getElementById('ax'),
+      ay: document.getElementById('ay'),
+      az: document.getElementById('az'),
+      gx: document.getElementById('gx'),
+      gy: document.getElementById('gy'),
+      gz: document.getElementById('gz'),
+      alpha: document.getElementById('alpha'),
+      beta: document.getElementById('beta'),
+      gamma: document.getElementById('gamma'),
+      status: document.getElementById('status'),
+      btn: document.getElementById('btn')
+    };
+
+    let motionFired = false;
+    let orientationFired = false;
+
+    function setStatus(text, ok) {
+      el.status.textContent = text;
+      el.status.className = 'status ' + (ok ? 'ok' : 'waiting');
+    }
+
+    function handleMotion(e) {
+      motionFired = true;
+      const a = e.accelerationIncludingGravity;
+      const r = e.rotationRate;
+      
+      if (a) {
+        el.ax.textContent = (a.x || 0).toFixed(3);
+        el.ay.textContent = (a.y || 0).toFixed(3);
+        el.az.textContent = (a.z || 0).toFixed(3);
+        setStatus('Active', true);
+      }
+      
+      if (r) {
+        el.gx.textContent = (r.x || 0).toFixed(3);
+        el.gy.textContent = (r.y || 0).toFixed(3);
+        el.gz.textContent = (r.z || 0).toFixed(3);
+      }
+    }
+
+    function handleOrientation(e) {
+      orientationFired = true;
+      el.alpha.textContent = (e.alpha || 0).toFixed(1);
+      el.beta.textContent = (e.beta || 0).toFixed(1);
+      el.gamma.textContent = (e.gamma || 0).toFixed(1);
+      setStatus('Active', true);
+    }
+
+    async function request() {
+      try {
+        let hasPermission = false;
+        
+        // Request motion permission
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+          try {
+            const perm = await DeviceMotionEvent.requestPermission();
+            if (perm === 'granted') {
+              hasPermission = true;
+            }
+          } catch (e) {
+            console.log('motion request failed:', e);
+          }
+        } else {
+          hasPermission = true;
+        }
+        
+        // Request orientation permission
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          try {
+            const perm = await DeviceOrientationEvent.requestPermission();
+            if (perm === 'granted') {
+              hasPermission = true;
+            }
+          } catch (e) {
+            console.log('orientation request failed:', e);
+          }
+        } else {
+          hasPermission = true;
+        }
+        
+        // Add listeners regardless of permission result
+        window.addEventListener('devicemotion', handleMotion);
+        window.addEventListener('deviceorientation', handleOrientation);
+        
+        // Try to trigger events manually for debugging
+        setTimeout(() => {
+          if (!motionFired && !orientationFired) {
+            setStatus('No sensor events - try HTTPS', false);
+          }
+        }, 2000);
+        
+        el.btn.style.display = 'none';
+      } catch (e) {
+        console.log('request failed:', e);
+        setStatus('Error - try browser restart', false);
+      }
+    }
+
+    // Expose for debugging
+    window.testMotion = () => {
+      console.log('Motion fired:', motionFired);
+      console.log('Orientation fired:', orientationFired);
+    };
+
+    // Start on page load
+    const ua = navigator.userAgent;
+    if (/iPad|iPhone|iPod/.test(ua)) {
+      setStatus('Initializing...', false);
+      setTimeout(() => request(), 300);
+    } else {
+      el.btn.style.display = 'block';
+      setStatus('Not iOS', false);
+    }
+  </script>
+</body>
+</html>
