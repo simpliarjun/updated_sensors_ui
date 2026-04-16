@@ -122,125 +122,160 @@
     function setStatus(text, ok) {
       el.status.textContent = text;
       el.status.className = 'status ' + (ok ? 'ok' : 'waiting');
+      console.log('[STATUS]', text, '(ok=' + ok + ')');
     }
 
     function handleMotion(e) {
       motionFired = true;
-      const a = e.accelerationIncludingGravity;
-      const r = e.rotationRate;
+      console.log('[MOTION EVENT]', e);
       
-      if (a) {
+      // Try accelerationIncludingGravity first (more common)
+      let a = e.accelerationIncludingGravity;
+      if (a && (a.x !== null || a.y !== null || a.z !== null)) {
         el.ax.textContent = (a.x || 0).toFixed(3);
         el.ay.textContent = (a.y || 0).toFixed(3);
         el.az.textContent = (a.z || 0).toFixed(3);
-        console.log('Motion data received:', a);
       }
       
-      if (r) {
+      // Try regular acceleration (without gravity)
+      let a2 = e.acceleration;
+      if (a2 && a2.x !== null) {
+        console.log('Also got acceleration:', a2);
+      }
+      
+      // Get gyroscope data
+      const r = e.rotationRate;
+      if (r && (r.x !== null || r.y !== null || r.z !== null)) {
         el.gx.textContent = (r.x || 0).toFixed(3);
         el.gy.textContent = (r.y || 0).toFixed(3);
         el.gz.textContent = (r.z || 0).toFixed(3);
       }
       
-      setStatus('Active ✓', true);
+      setStatus('✓ Active - Accelerometer & Gyroscope', true);
     }
 
     function handleOrientation(e) {
       orientationFired = true;
+      console.log('[ORIENTATION EVENT]', e);
+      
       el.alpha.textContent = (e.alpha || 0).toFixed(1);
       el.beta.textContent = (e.beta || 0).toFixed(1);
       el.gamma.textContent = (e.gamma || 0).toFixed(1);
-      console.log('Orientation data received:', e);
-      setStatus('Active ✓', true);
+      
+      if (!motionFired) {
+        setStatus('✓ Active - Compass/Orientation', true);
+      }
     }
 
     async function request() {
       try {
-        // Check if running on HTTPS or localhost
+        console.log('[INIT] Starting sensor initialization');
+        console.log('[INFO] Current URL:', location.href);
+        console.log('[INFO] Protocol:', location.protocol);
+        
+        // Check if running on HTTPS
         if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-          setStatus('ERROR: HTTPS required (or localhost)', false);
-          console.error('Sensors require HTTPS. Current protocol:', location.protocol);
+          setStatus('❌ HTTPS Required', false);
+          console.error('[ERROR] Not HTTPS. Protocol:', location.protocol);
           return;
         }
 
-        setStatus('Requesting permissions...', false);
-        let motionGranted = false;
-        let orientationGranted = false;
+        // Add listeners FIRST before requesting permission
+        console.log('[SETUP] Adding event listeners...');
+        window.addEventListener('devicemotion', handleMotion, false);
+        window.addEventListener('deviceorientation', handleOrientation, false);
+        
+        setStatus('📱 Requesting permissions...', false);
         
         // Request motion permission (iOS 13+)
+        let motionPermissionAttempted = false;
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+          motionPermissionAttempted = true;
           try {
+            console.log('[PERM] Requesting DeviceMotion permission...');
             const perm = await DeviceMotionEvent.requestPermission();
-            motionGranted = perm === 'granted';
-            console.log('Motion permission:', perm);
+            console.log('[PERM] DeviceMotion result:', perm);
           } catch (e) {
-            console.error('Motion permission error:', e);
+            console.error('[PERM] Motion permission error:', e);
           }
         } else {
-          // Not iOS 13+ or already permitted on older iOS
-          motionGranted = true;
-          console.log('Motion API available without explicit permission');
+          console.log('[PERM] No DeviceMotion.requestPermission available (not iOS 13+)');
         }
         
         // Request orientation permission (iOS 13+)
+        let orientPermissionAttempted = false;
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          orientPermissionAttempted = true;
           try {
+            console.log('[PERM] Requesting DeviceOrientation permission...');
             const perm = await DeviceOrientationEvent.requestPermission();
-            orientationGranted = perm === 'granted';
-            console.log('Orientation permission:', perm);
+            console.log('[PERM] DeviceOrientation result:', perm);
           } catch (e) {
-            console.error('Orientation permission error:', e);
+            console.error('[PERM] Orientation permission error:', e);
           }
         } else {
-          orientationGranted = true;
-          console.log('Orientation API available without explicit permission');
+          console.log('[PERM] No DeviceOrientation.requestPermission available');
         }
         
-        if (!motionGranted && !orientationGranted) {
-          setStatus('Permissions denied', false);
-          el.btn.style.display = 'block';
-          return;
-        }
+        setStatus('📡 Listening (move device)...', false);
         
-        // Add listeners
-        window.addEventListener('devicemotion', handleMotion, false);
-        window.addEventListener('deviceorientation', handleOrientation, false);
-        setStatus('Listening... (move device)', false);
-        
-        // Extended check for sensor activation
+        // Check at 1 second
         setTimeout(() => {
+          console.log('[CHECK @ 1s] Motion:', motionFired, 'Orientation:', orientationFired);
           if (!motionFired && !orientationFired) {
-            setStatus('Waiting for sensor data... (try tilting device)', false);
+            setStatus('⏳ Still listening... try rotating device', false);
           }
-        }, 2000);
+        }, 1000);
 
+        // Check at 3 seconds
         setTimeout(() => {
+          console.log('[CHECK @ 3s] Motion:', motionFired, 'Orientation:', orientationFired);
           if (!motionFired && !orientationFired) {
-            setStatus('No data received - check device sensors & iOS settings', false);
+            setStatus('⏳ No data yet... try Settings > Safari > Motion & Orientation', false);
+          }
+        }, 3000);
+
+        // Final check at 5 seconds
+        setTimeout(() => {
+          console.log('[CHECK @ 5s] Motion:', motionFired, 'Orientation:', orientationFired);
+          if (!motionFired && !orientationFired) {
+            setStatus('❌ No sensor data - Check iOS Settings or try reloading', false);
           }
         }, 5000);
         
         el.btn.style.display = 'none';
+        
       } catch (e) {
-        console.error('Request error:', e);
-        setStatus('Error: ' + e.message, false);
+        console.error('[ERROR]', e);
+        setStatus('❌ ' + e.message, false);
       }
     }
 
-    // Expose for debugging
-    window.testMotion = () => {
+    // Expose debugging functions
+    window.debugSensors = () => {
+      console.log('=== SENSOR DEBUG ===');
       console.log('Motion fired:', motionFired);
       console.log('Orientation fired:', orientationFired);
+      console.log('DeviceMotionEvent:', typeof DeviceMotionEvent);
+      console.log('DeviceMotionEvent.requestPermission:', typeof DeviceMotionEvent?.requestPermission);
+      console.log('DeviceOrientationEvent:', typeof DeviceOrientationEvent);
+      console.log('DeviceOrientationEvent.requestPermission:', typeof DeviceOrientationEvent?.requestPermission);
+      console.log('User Agent:', navigator.userAgent);
     };
 
-    // Start on page load
+    // Initialize
     const ua = navigator.userAgent;
+    console.log('[START] User Agent:', ua);
+    
     if (/iPad|iPhone|iPod/.test(ua)) {
-      setStatus('Initializing...', false);
-      setTimeout(() => request(), 300);
+      console.log('[START] iOS detected - initializing sensors');
+      setStatus('⏳ Initializing...', false);
+      // Give Safari time to prepare
+      setTimeout(() => request(), 500);
     } else {
+      console.log('[START] Not iOS - showing manual button');
       el.btn.style.display = 'block';
-      setStatus('Not iOS', false);
+      setStatus('ℹ Not on iOS', false);
     }
   </script>
 </body>
