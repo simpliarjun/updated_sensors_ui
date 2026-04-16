@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="pragma" content="no-cache" />
+  <meta http-equiv="expires" content="0" />
   <title>Sensors</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -12,13 +15,8 @@
       background: #fff;
       color: #000;
     }
-    h1 {
-      font-size: 24px;
-      margin-bottom: 20px;
-    }
-    .section {
-      margin-bottom: 30px;
-    }
+    h1 { font-size: 24px; margin-bottom: 20px; }
+    .section { margin-bottom: 30px; }
     .section h2 {
       font-size: 16px;
       font-weight: 600;
@@ -33,9 +31,7 @@
       padding: 8px 0;
       font-size: 14px;
     }
-    .label {
-      font-weight: 500;
-    }
+    .label { font-weight: 500; }
     .value {
       font-family: monospace;
       text-align: right;
@@ -75,25 +71,13 @@
       cursor: pointer;
       margin-bottom: 20px;
     }
-    button:hover {
-      background: #333;
-    }
-    .debug {
-      background: #f0f0f0;
-      padding: 10px;
-      border-radius: 4px;
-      font-size: 12px;
-      margin-top: 20px;
-      font-family: monospace;
-      max-height: 200px;
-      overflow-y: auto;
-    }
+    button:hover { background: #333; }
   </style>
 </head>
 <body>
   <h1>Sensors</h1>
   <div id="status" class="status waiting">Initializing...</div>
-  <button id="btn" onclick="startSensors()">Start Sensors</button>
+  <button id="btn" onclick="requestPermissions()" style="display:none;">Request Permission</button>
 
   <div class="section">
     <h2>Accelerometer</h2>
@@ -116,22 +100,7 @@
     <div class="row"><span class="label">Gamma</span><span class="value"><span id="gamma">0.000</span><span class="unit">°</span></span></div>
   </div>
 
-  <div class="debug">
-    <div id="logs" style="line-height: 1.5;"></div>
-  </div>
-
   <script>
-    let logs = [];
-    const logEl = document.getElementById('logs');
-
-    function log(msg) {
-      console.log(msg);
-      logs.push(msg);
-      if (logs.length > 20) logs.shift();
-      logEl.innerHTML = logs.map(l => '<div>' + l + '</div>').join('');
-      logEl.scrollTop = logEl.scrollHeight;
-    }
-
     const el = {
       ax: document.getElementById('ax'),
       ay: document.getElementById('ay'),
@@ -146,138 +115,82 @@
       btn: document.getElementById('btn')
     };
 
-    let eventsFired = 0;
-
-    function updateStatus(text, type = 'waiting') {
+    function setStatus(text, type) {
       el.status.textContent = text;
-      el.status.className = 'status ' + type;
-      log('STATUS: ' + text);
+      el.status.className = 'status ' + (type || 'waiting');
     }
 
-    function onDeviceMotion(event) {
-      eventsFired++;
-      log('✓ devicemotion event fired (#' + eventsFired + ')');
-      
-      const acc = event.accelerationIncludingGravity;
+    function handleMotion(e) {
+      const acc = e.accelerationIncludingGravity;
       if (acc) {
         el.ax.textContent = (acc.x || 0).toFixed(3);
         el.ay.textContent = (acc.y || 0).toFixed(3);
         el.az.textContent = (acc.z || 0).toFixed(3);
       }
-      
-      const rot = event.rotationRate;
+
+      const rot = e.rotationRate;
       if (rot) {
         el.gx.textContent = (rot.x || 0).toFixed(3);
         el.gy.textContent = (rot.y || 0).toFixed(3);
         el.gz.textContent = (rot.z || 0).toFixed(3);
       }
-      
-      updateStatus('✓ Getting Accelerometer & Gyroscope Data', 'ok');
+
+      setStatus('✓ Active', 'ok');
     }
 
-    function onDeviceOrientation(event) {
-      eventsFired++;
-      log('✓ deviceorientation event fired (#' + eventsFired + ')');
-      
-      el.alpha.textContent = (event.alpha || 0).toFixed(1);
-      el.beta.textContent = (event.beta || 0).toFixed(1);
-      el.gamma.textContent = (event.gamma || 0).toFixed(1);
-      
-      if (eventsFired === 1) {
-        updateStatus('✓ Getting Orientation Data', 'ok');
-      }
+    function handleOrientation(e) {
+      el.alpha.textContent = (e.alpha || 0).toFixed(1);
+      el.beta.textContent = (e.beta || 0).toFixed(1);
+      el.gamma.textContent = (e.gamma || 0).toFixed(1);
+      setStatus('✓ Active', 'ok');
     }
 
-    async function startSensors() {
-      log('--- START SENSOR REQUEST ---');
-      log('URL: ' + location.href);
-      log('Protocol: ' + location.protocol);
-      
-      if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-        updateStatus('ERROR: Must be HTTPS', 'error');
-        log('ERROR: Not HTTPS');
-        return;
-      }
-      log('✓ HTTPS OK');
+    function setupListeners() {
+      window.addEventListener('devicemotion', handleMotion, false);
+      window.addEventListener('deviceorientation', handleOrientation, false);
+      el.btn.style.display = 'none';
+      setStatus('Listening... move device', 'waiting');
+    }
 
-      log('Checking APIs...');
-      if (typeof DeviceMotionEvent === 'undefined') {
-        log('ERROR: DeviceMotionEvent not available');
-      } else {
-        log('✓ DeviceMotionEvent available');
-      }
-      if (typeof DeviceOrientationEvent === 'undefined') {
-        log('ERROR: DeviceOrientationEvent not available');
-      } else {
-        log('✓ DeviceOrientationEvent available');
-      }
+    async function requestPermissions() {
+      setStatus('Requesting...', 'waiting');
 
-      updateStatus('⏳ Requesting permissions...', 'waiting');
-      
       if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-        log('Requesting DeviceMotion permission...');
         try {
-          const result = await DeviceMotionEvent.requestPermission();
-          log('DeviceMotion permission: ' + result);
-          if (result !== 'granted') {
-            log('WARNING: Motion permission not granted');
+          const perm = await DeviceMotionEvent.requestPermission();
+          if (perm !== 'granted') {
+            setStatus('Permission denied', 'error');
+            return;
           }
-        } catch (err) {
-          log('DeviceMotion error: ' + err.message);
+        } catch (e) {
+          console.log('Motion permission error:', e);
         }
-      } else {
-        log('No requestPermission for DeviceMotion (auto-allowed on older iOS)');
       }
 
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        log('Requesting DeviceOrientation permission...');
         try {
-          const result = await DeviceOrientationEvent.requestPermission();
-          log('DeviceOrientation permission: ' + result);
-          if (result !== 'granted') {
-            log('WARNING: Orientation permission not granted');
+          const perm = await DeviceOrientationEvent.requestPermission();
+          if (perm !== 'granted') {
+            setStatus('Permission denied', 'error');
+            return;
           }
-        } catch (err) {
-          log('DeviceOrientation error: ' + err.message);
+        } catch (e) {
+          console.log('Orientation permission error:', e);
         }
-      } else {
-        log('No requestPermission for DeviceOrientation (auto-allowed on older iOS)');
       }
 
-      log('Adding event listeners...');
-      window.addEventListener('devicemotion', onDeviceMotion, false);
-      window.addEventListener('deviceorientation', onDeviceOrientation, false);
-      
-      log('Listeners added. Waiting for events...');
-      updateStatus('📱 Listening... Move & rotate phone', 'waiting');
-      el.btn.style.display = 'none';
-
-      setTimeout(() => {
-        if (eventsFired === 0) {
-          log('--- NO EVENTS AT 2 SECONDS ---');
-          updateStatus('⏳ No data yet... Try rotating phone', 'waiting');
-        }
-      }, 2000);
-
-      setTimeout(() => {
-        if (eventsFired === 0) {
-          log('--- NO EVENTS AT 5 SECONDS ---');
-          updateStatus('⚠️ Check: Settings > Safari > Motion & Orientation > ON', 'error');
-        }
-      }, 5000);
+      setupListeners();
     }
 
-    log('Page loaded');
-    log('User Agent: ' + navigator.userAgent);
-    
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const ua = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/.test(ua);
+
     if (isIOS) {
-      log('✓ iOS device detected');
-      updateStatus('iOS Ready - Tap button to start', 'waiting');
-      setTimeout(startSensors, 1000);
+      el.btn.style.display = 'block';
+      setStatus('Tap button to enable sensors', 'waiting');
+      setTimeout(requestPermissions, 500);
     } else {
-      log('Not iOS - manual button needed');
-      updateStatus('Not on iOS device', 'error');
+      setStatus('Not on iOS', 'error');
     }
   </script>
 </body>
