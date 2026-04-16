@@ -133,7 +133,7 @@
         el.ax.textContent = (a.x || 0).toFixed(3);
         el.ay.textContent = (a.y || 0).toFixed(3);
         el.az.textContent = (a.z || 0).toFixed(3);
-        setStatus('Active', true);
+        console.log('Motion data received:', a);
       }
       
       if (r) {
@@ -141,6 +141,8 @@
         el.gy.textContent = (r.y || 0).toFixed(3);
         el.gz.textContent = (r.z || 0).toFixed(3);
       }
+      
+      setStatus('Active ✓', true);
     }
 
     function handleOrientation(e) {
@@ -148,56 +150,80 @@
       el.alpha.textContent = (e.alpha || 0).toFixed(1);
       el.beta.textContent = (e.beta || 0).toFixed(1);
       el.gamma.textContent = (e.gamma || 0).toFixed(1);
-      setStatus('Active', true);
+      console.log('Orientation data received:', e);
+      setStatus('Active ✓', true);
     }
 
     async function request() {
       try {
-        let hasPermission = false;
+        // Check if running on HTTPS or localhost
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+          setStatus('ERROR: HTTPS required (or localhost)', false);
+          console.error('Sensors require HTTPS. Current protocol:', location.protocol);
+          return;
+        }
+
+        setStatus('Requesting permissions...', false);
+        let motionGranted = false;
+        let orientationGranted = false;
         
-        // Request motion permission
+        // Request motion permission (iOS 13+)
         if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
           try {
             const perm = await DeviceMotionEvent.requestPermission();
-            if (perm === 'granted') {
-              hasPermission = true;
-            }
+            motionGranted = perm === 'granted';
+            console.log('Motion permission:', perm);
           } catch (e) {
-            console.log('motion request failed:', e);
+            console.error('Motion permission error:', e);
           }
         } else {
-          hasPermission = true;
+          // Not iOS 13+ or already permitted on older iOS
+          motionGranted = true;
+          console.log('Motion API available without explicit permission');
         }
         
-        // Request orientation permission
+        // Request orientation permission (iOS 13+)
         if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
           try {
             const perm = await DeviceOrientationEvent.requestPermission();
-            if (perm === 'granted') {
-              hasPermission = true;
-            }
+            orientationGranted = perm === 'granted';
+            console.log('Orientation permission:', perm);
           } catch (e) {
-            console.log('orientation request failed:', e);
+            console.error('Orientation permission error:', e);
           }
         } else {
-          hasPermission = true;
+          orientationGranted = true;
+          console.log('Orientation API available without explicit permission');
         }
         
-        // Add listeners regardless of permission result
-        window.addEventListener('devicemotion', handleMotion);
-        window.addEventListener('deviceorientation', handleOrientation);
+        if (!motionGranted && !orientationGranted) {
+          setStatus('Permissions denied', false);
+          el.btn.style.display = 'block';
+          return;
+        }
         
-        // Try to trigger events manually for debugging
+        // Add listeners
+        window.addEventListener('devicemotion', handleMotion, false);
+        window.addEventListener('deviceorientation', handleOrientation, false);
+        setStatus('Listening... (move device)', false);
+        
+        // Extended check for sensor activation
         setTimeout(() => {
           if (!motionFired && !orientationFired) {
-            setStatus('No sensor events - try HTTPS', false);
+            setStatus('Waiting for sensor data... (try tilting device)', false);
           }
         }, 2000);
+
+        setTimeout(() => {
+          if (!motionFired && !orientationFired) {
+            setStatus('No data received - check device sensors & iOS settings', false);
+          }
+        }, 5000);
         
         el.btn.style.display = 'none';
       } catch (e) {
-        console.log('request failed:', e);
-        setStatus('Error - try browser restart', false);
+        console.error('Request error:', e);
+        setStatus('Error: ' + e.message, false);
       }
     }
 
