@@ -76,8 +76,8 @@
 </head>
 <body>
   <h1>Sensors</h1>
-  <div id="status" class="status waiting">Initializing...</div>
-  <button id="btn" onclick="requestPermissions()" style="display:none;">Request Permission</button>
+  <div id="status" class="status waiting">Loading...</div>
+  <button id="btn" onclick="enableSensors()" style="display:none;">Enable Sensors</button>
 
   <div class="section">
     <h2>Accelerometer</h2>
@@ -115,12 +115,15 @@
       btn: document.getElementById('btn')
     };
 
+    let hasData = false;
+
     function setStatus(text, type) {
       el.status.textContent = text;
       el.status.className = 'status ' + (type || 'waiting');
     }
 
     function handleMotion(e) {
+      hasData = true;
       const acc = e.accelerationIncludingGravity;
       if (acc) {
         el.ax.textContent = (acc.x || 0).toFixed(3);
@@ -135,14 +138,15 @@
         el.gz.textContent = (rot.z || 0).toFixed(3);
       }
 
-      setStatus('✓ Active', 'ok');
+      setStatus('✓ Sensor Active', 'ok');
     }
 
     function handleOrientation(e) {
+      hasData = true;
       el.alpha.textContent = (e.alpha || 0).toFixed(1);
       el.beta.textContent = (e.beta || 0).toFixed(1);
       el.gamma.textContent = (e.gamma || 0).toFixed(1);
-      setStatus('✓ Active', 'ok');
+      setStatus('✓ Sensor Active', 'ok');
     }
 
     function setupListeners() {
@@ -150,47 +154,53 @@
       window.addEventListener('deviceorientation', handleOrientation, false);
       el.btn.style.display = 'none';
       setStatus('Listening... move device', 'waiting');
+
+      setTimeout(() => {
+        if (!hasData) {
+          setStatus('Move or rotate device', 'waiting');
+        }
+      }, 2000);
     }
 
-    async function requestPermissions() {
-      setStatus('Requesting...', 'waiting');
+    async function enableSensors() {
+      const ua = navigator.userAgent;
+      const isIOS = /iPad|iPhone|iPod/.test(ua);
+      const isAndroid = /Android/.test(ua);
 
-      if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      setStatus('Requesting access...', 'waiting');
+
+      if (isIOS && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         try {
-          const perm = await DeviceMotionEvent.requestPermission();
-          if (perm !== 'granted') {
-            setStatus('Permission denied', 'error');
-            return;
-          }
-        } catch (e) {
-          console.log('Motion permission error:', e);
-        }
-      }
+          const motionPerm = await DeviceMotionEvent.requestPermission();
+          const orientPerm = await DeviceOrientationEvent.requestPermission();
 
-      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        try {
-          const perm = await DeviceOrientationEvent.requestPermission();
-          if (perm !== 'granted') {
+          if (motionPerm === 'granted' || orientPerm === 'granted') {
+            setupListeners();
+          } else {
             setStatus('Permission denied', 'error');
-            return;
           }
-        } catch (e) {
-          console.log('Orientation permission error:', e);
+        } catch (err) {
+          setupListeners();
         }
+      } else {
+        setupListeners();
       }
-
-      setupListeners();
     }
 
     const ua = navigator.userAgent;
     const isIOS = /iPad|iPhone|iPod/.test(ua);
+    const isAndroid = /Android/.test(ua);
 
-    if (isIOS) {
-      el.btn.style.display = 'block';
-      setStatus('Tap button to enable sensors', 'waiting');
-      setTimeout(requestPermissions, 500);
+    if (isIOS || isAndroid) {
+      if (isIOS && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        el.btn.style.display = 'block';
+        setStatus('Tap to enable sensors', 'waiting');
+      } else {
+        setStatus('Initializing...', 'waiting');
+        setTimeout(enableSensors, 500);
+      }
     } else {
-      setStatus('Not on iOS', 'error');
+      setStatus('Not a mobile device', 'error');
     }
   </script>
 </body>
