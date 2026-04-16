@@ -193,7 +193,6 @@
       log('URL: ' + location.href);
       log('Protocol: ' + location.protocol);
       
-      // Check protocol
       if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
         updateStatus('ERROR: Must be HTTPS', 'error');
         log('ERROR: Not HTTPS');
@@ -201,7 +200,6 @@
       }
       log('✓ HTTPS OK');
 
-      // Check APIs exist
       log('Checking APIs...');
       if (typeof DeviceMotionEvent === 'undefined') {
         log('ERROR: DeviceMotionEvent not available');
@@ -216,7 +214,6 @@
 
       updateStatus('⏳ Requesting permissions...', 'waiting');
       
-      // Try to request motion permission
       if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
         log('Requesting DeviceMotion permission...');
         try {
@@ -232,7 +229,6 @@
         log('No requestPermission for DeviceMotion (auto-allowed on older iOS)');
       }
 
-      // Try to request orientation permission
       if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
         log('Requesting DeviceOrientation permission...');
         try {
@@ -248,7 +244,6 @@
         log('No requestPermission for DeviceOrientation (auto-allowed on older iOS)');
       }
 
-      // Add listeners
       log('Adding event listeners...');
       window.addEventListener('devicemotion', onDeviceMotion, false);
       window.addEventListener('deviceorientation', onDeviceOrientation, false);
@@ -257,7 +252,6 @@
       updateStatus('📱 Listening... Move & rotate phone', 'waiting');
       el.btn.style.display = 'none';
 
-      // Check after delays
       setTimeout(() => {
         if (eventsFired === 0) {
           log('--- NO EVENTS AT 2 SECONDS ---');
@@ -273,7 +267,6 @@
       }, 5000);
     }
 
-    // Check on page load
     log('Page loaded');
     log('User Agent: ' + navigator.userAgent);
     
