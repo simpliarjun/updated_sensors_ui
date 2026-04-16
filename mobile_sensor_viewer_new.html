@@ -4,103 +4,134 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="pragma" content="no-cache" />
-  <meta http-equiv="expires" content="0" />
   <title>Sensors</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      padding: 20px;
-      background: #fff;
+      padding: 15px;
+      background: #f5f5f5;
       color: #000;
     }
-    h1 { font-size: 24px; margin-bottom: 20px; }
-    .section { margin-bottom: 30px; }
-    .section h2 {
-      font-size: 16px;
+    h1 { font-size: 22px; margin-bottom: 15px; }
+    .status {
+      padding: 12px;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      font-size: 13px;
       font-weight: 600;
+      word-wrap: break-word;
+    }
+    .status.ok { background: #d4edda; color: #155724; }
+    .status.error { background: #f8d7da; color: #721c24; }
+    .status.waiting { background: #fff3cd; color: #856404; }
+    .section {
+      background: white;
+      padding: 12px;
       margin-bottom: 12px;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .section h2 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 10px;
       color: #333;
-      border-bottom: 1px solid #ddd;
-      padding-bottom: 8px;
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 6px;
     }
     .row {
       display: flex;
       justify-content: space-between;
       padding: 8px 0;
-      font-size: 14px;
+      font-size: 13px;
+      border-bottom: 1px solid #f0f0f0;
     }
-    .label { font-weight: 500; }
+    .row:last-child { border-bottom: none; }
+    .label { font-weight: 600; color: #555; }
     .value {
-      font-family: monospace;
+      font-family: 'Courier New', monospace;
       text-align: right;
-      min-width: 100px;
+      color: #000;
     }
-    .unit {
-      font-size: 12px;
-      color: #666;
-      margin-left: 4px;
-    }
-    .status {
-      padding: 10px;
-      margin-bottom: 20px;
-      border-radius: 4px;
-      font-size: 14px;
-      word-wrap: break-word;
-    }
-    .status.ok {
-      background: #e6f7ed;
-      color: #164b35;
-    }
-    .status.waiting {
-      background: #fff7e6;
-      color: #5d3a0a;
-    }
-    .status.error {
-      background: #fde2e4;
-      color: #ae1e1e;
+    .buttons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
     }
     button {
-      padding: 10px 20px;
-      font-size: 14px;
-      background: #000;
-      color: #fff;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #007AFF;
+      color: white;
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
-      margin-bottom: 20px;
     }
-    button:hover { background: #333; }
+    button:active { background: #0051D5; }
+    button.danger { background: #FF3B30; }
+    .debug {
+      background: #1a1a1a;
+      color: #0f0;
+      padding: 10px;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      max-height: 150px;
+      overflow-y: auto;
+      line-height: 1.4;
+    }
+    .debug div { margin-bottom: 2px; }
   </style>
 </head>
 <body>
-  <h1>Sensors</h1>
-  <div id="status" class="status waiting">Loading...</div>
-  <button id="btn" onclick="enableSensors()" style="display:none;">Enable Sensors</button>
+  <h1>📱 Sensor Reader</h1>
+  <div id="status" class="status waiting">Initializing...</div>
+
+  <div class="buttons">
+    <button onclick="startSensors()">Start Sensors</button>
+    <button onclick="stopSensors()">Stop</button>
+    <button class="danger" onclick="testSensor()">Test Event</button>
+  </div>
 
   <div class="section">
     <h2>Accelerometer</h2>
-    <div class="row"><span class="label">X</span><span class="value"><span id="ax">0.000</span><span class="unit">m/s²</span></span></div>
-    <div class="row"><span class="label">Y</span><span class="value"><span id="ay">0.000</span><span class="unit">m/s²</span></span></div>
-    <div class="row"><span class="label">Z</span><span class="value"><span id="az">0.000</span><span class="unit">m/s²</span></span></div>
+    <div class="row"><span class="label">X</span><span class="value" id="ax">0.000</span></div>
+    <div class="row"><span class="label">Y</span><span class="value" id="ay">0.000</span></div>
+    <div class="row"><span class="label">Z</span><span class="value" id="az">0.000</span></div>
   </div>
 
   <div class="section">
     <h2>Gyroscope</h2>
-    <div class="row"><span class="label">X</span><span class="value"><span id="gx">0.000</span><span class="unit">°/s</span></span></div>
-    <div class="row"><span class="label">Y</span><span class="value"><span id="gy">0.000</span><span class="unit">°/s</span></span></div>
-    <div class="row"><span class="label">Z</span><span class="value"><span id="gz">0.000</span><span class="unit">°/s</span></span></div>
+    <div class="row"><span class="label">X</span><span class="value" id="gx">0.000</span></div>
+    <div class="row"><span class="label">Y</span><span class="value" id="gy">0.000</span></div>
+    <div class="row"><span class="label">Z</span><span class="value" id="gz">0.000</span></div>
   </div>
 
   <div class="section">
     <h2>Orientation</h2>
-    <div class="row"><span class="label">Alpha</span><span class="value"><span id="alpha">0.000</span><span class="unit">°</span></span></div>
-    <div class="row"><span class="label">Beta</span><span class="value"><span id="beta">0.000</span><span class="unit">°</span></span></div>
-    <div class="row"><span class="label">Gamma</span><span class="value"><span id="gamma">0.000</span><span class="unit">°</span></span></div>
+    <div class="row"><span class="label">Alpha</span><span class="value" id="alpha">0.000</span></div>
+    <div class="row"><span class="label">Beta</span><span class="value" id="beta">0.000</span></div>
+    <div class="row"><span class="label">Gamma</span><span class="value" id="gamma">0.000</span></div>
+  </div>
+
+  <div class="section">
+    <h2>Debug Log</h2>
+    <div class="debug" id="logs"></div>
   </div>
 
   <script>
+    let logs = [];
+    let listeningActive = false;
+
+    function addLog(msg) {
+      logs.unshift(new Date().toLocaleTimeString() + ' > ' + msg);
+      if (logs.length > 30) logs.pop();
+      document.getElementById('logs').innerHTML = logs.map(l => '<div>' + l + '</div>').join('');
+    }
+
     const el = {
       ax: document.getElementById('ax'),
       ay: document.getElementById('ay'),
@@ -111,97 +142,134 @@
       alpha: document.getElementById('alpha'),
       beta: document.getElementById('beta'),
       gamma: document.getElementById('gamma'),
-      status: document.getElementById('status'),
-      btn: document.getElementById('btn')
+      status: document.getElementById('status')
     };
 
-    let hasData = false;
-
-    function setStatus(text, type) {
-      el.status.textContent = text;
+    function setStatus(msg, type) {
+      el.status.textContent = msg;
       el.status.className = 'status ' + (type || 'waiting');
+      addLog('STATUS: ' + msg);
     }
 
-    function handleMotion(e) {
-      hasData = true;
+    function onMotion(e) {
       const acc = e.accelerationIncludingGravity;
       if (acc) {
-        el.ax.textContent = (acc.x || 0).toFixed(3);
-        el.ay.textContent = (acc.y || 0).toFixed(3);
-        el.az.textContent = (acc.z || 0).toFixed(3);
+        el.ax.textContent = (acc.x || 0).toFixed(2);
+        el.ay.textContent = (acc.y || 0).toFixed(2);
+        el.az.textContent = (acc.z || 0).toFixed(2);
       }
 
       const rot = e.rotationRate;
       if (rot) {
-        el.gx.textContent = (rot.x || 0).toFixed(3);
-        el.gy.textContent = (rot.y || 0).toFixed(3);
-        el.gz.textContent = (rot.z || 0).toFixed(3);
+        el.gx.textContent = (rot.x || 0).toFixed(2);
+        el.gy.textContent = (rot.y || 0).toFixed(2);
+        el.gz.textContent = (rot.z || 0).toFixed(2);
       }
 
-      setStatus('✓ Sensor Active', 'ok');
+      if (!listeningActive) {
+        setStatus('✓ Motion Data Received', 'ok');
+        listeningActive = true;
+      }
     }
 
-    function handleOrientation(e) {
-      hasData = true;
+    function onOrientation(e) {
       el.alpha.textContent = (e.alpha || 0).toFixed(1);
       el.beta.textContent = (e.beta || 0).toFixed(1);
       el.gamma.textContent = (e.gamma || 0).toFixed(1);
-      setStatus('✓ Sensor Active', 'ok');
+
+      if (!listeningActive) {
+        setStatus('✓ Orientation Data Received', 'ok');
+        listeningActive = true;
+      }
     }
 
-    function setupListeners() {
-      window.addEventListener('devicemotion', handleMotion, false);
-      window.addEventListener('deviceorientation', handleOrientation, false);
-      el.btn.style.display = 'none';
-      setStatus('Listening... move device', 'waiting');
-
-      setTimeout(() => {
-        if (!hasData) {
-          setStatus('Move or rotate device', 'waiting');
-        }
-      }, 2000);
+    function stopSensors() {
+      window.removeEventListener('devicemotion', onMotion);
+      window.removeEventListener('deviceorientation', onOrientation);
+      listeningActive = false;
+      setStatus('Stopped', 'waiting');
+      addLog('Listeners removed');
     }
 
-    async function enableSensors() {
+    async function startSensors() {
+      setStatus('Starting...', 'waiting');
+      addLog('=== START SENSORS ===');
+
       const ua = navigator.userAgent;
+      addLog('User Agent: ' + ua);
+
       const isIOS = /iPad|iPhone|iPod/.test(ua);
       const isAndroid = /Android/.test(ua);
 
-      setStatus('Requesting access...', 'waiting');
-
       if (isIOS && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+        addLog('iOS 13+ detected - requesting permissions');
         try {
           const motionPerm = await DeviceMotionEvent.requestPermission();
-          const orientPerm = await DeviceOrientationEvent.requestPermission();
+          addLog('Motion permission: ' + motionPerm);
 
-          if (motionPerm === 'granted' || orientPerm === 'granted') {
-            setupListeners();
-          } else {
-            setStatus('Permission denied', 'error');
-          }
+          const orientPerm = await DeviceOrientationEvent.requestPermission();
+          addLog('Orientation permission: ' + orientPerm);
         } catch (err) {
-          setupListeners();
+          addLog('Permission error: ' + err);
         }
-      } else {
-        setupListeners();
       }
+
+      addLog('Attaching event listeners...');
+      window.removeEventListener('devicemotion', onMotion);
+      window.removeEventListener('deviceorientation', onOrientation);
+
+      window.addEventListener('devicemotion', onMotion, false);
+      window.addEventListener('deviceorientation', onOrientation, false);
+
+      setStatus('Listening... Move device', 'waiting');
+      addLog('Ready - Move or rotate your device');
+
+      setTimeout(() => {
+        if (!listeningActive) {
+          addLog('No events yet - try moving device');
+        }
+      }, 3000);
     }
+
+    function testSensor() {
+      addLog('Sending test events...');
+      const testMotion = new DeviceMotionEvent('devicemotion', {
+        accelerationIncludingGravity: { x: 1.5, y: 2.5, z: 9.8 },
+        rotationRate: { x: 0.5, y: 1.0, z: 0.2 }
+      });
+      window.dispatchEvent(testMotion);
+
+      const testOrient = new DeviceOrientationEvent('deviceorientation', {
+        alpha: 45,
+        beta: 30,
+        gamma: 20
+      });
+      window.dispatchEvent(testOrient);
+    }
+
+    addLog('Page loaded');
+    addLog('Device detection running...');
 
     const ua = navigator.userAgent;
     const isIOS = /iPad|iPhone|iPod/.test(ua);
     const isAndroid = /Android/.test(ua);
 
-    if (isIOS || isAndroid) {
-      if (isIOS && typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-        el.btn.style.display = 'block';
-        setStatus('Tap to enable sensors', 'waiting');
-      } else {
-        setStatus('Initializing...', 'waiting');
-        setTimeout(enableSensors, 500);
-      }
+    if (isIOS) addLog('iOS device detected');
+    if (isAndroid) addLog('Android device detected');
+
+    if (typeof DeviceMotionEvent !== 'undefined') {
+      addLog('✓ DeviceMotionEvent available');
     } else {
-      setStatus('Not a mobile device', 'error');
+      addLog('✗ DeviceMotionEvent NOT available');
     }
+
+    if (typeof DeviceOrientationEvent !== 'undefined') {
+      addLog('✓ DeviceOrientationEvent available');
+    } else {
+      addLog('✗ DeviceOrientationEvent NOT available');
+    }
+
+    setStatus('Ready - Tap Start Sensors', 'waiting');
   </script>
 </body>
 </html>
